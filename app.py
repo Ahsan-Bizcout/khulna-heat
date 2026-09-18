@@ -269,17 +269,27 @@ def discover_inputs(root: str = "data") -> dict:
     return {"climate": climate, "socio": socio, "projection": proj}
 
 
+def file_signature(path) -> tuple:
+    """(size, mtime) of a file, so a cache keyed on the path also busts when the
+    file's contents change under it -- e.g. a hosted redeploy that hot-swaps
+    files without restarting the process."""
+    if path is None:
+        return (0, 0)
+    stt = Path(path).stat()
+    return (stt.st_size, int(stt.st_mtime))
+
+
 @st.cache_data(show_spinner=False)
-def get_zones(path: str | None, demo: bool):
+def get_zones(path: str | None, demo: bool, sig: tuple = (0, 0)):
     if demo or path is None:
         return zones.demo_zones(8, 8)
     return zones.load_zones(path)
 
 
 @st.cache_data(show_spinner=False)
-def get_map_context(path: str | None, demo: bool) -> dict:
-    """Division outline, district polygons and label points for the map frame."""
-    gdf = get_zones(path, demo)
+def get_map_context(path: str | None, demo: bool, sig: tuple = (0, 0)) -> dict:
+    """Study-area frame, district polygons and label points for the map."""
+    gdf = get_zones(path, demo, sig)
     districts = zones.district_boundaries(gdf)
     outline = zones.study_area_boundary(gdf)
     pts = gdf.geometry.representative_point()
@@ -443,8 +453,9 @@ RAMP = HEAT if ramp_choice == "Heat" else VIRIDIS
 
 # --------------------------------------------------------------------------- data
 bpath = None if demo_geometry else str(boundary_path)
-gdf = get_zones(bpath, demo_geometry)
-ctx = get_map_context(bpath, demo_geometry)
+bsig = file_signature(bpath)
+gdf = get_zones(bpath, demo_geometry, bsig)
+ctx = get_map_context(bpath, demo_geometry, bsig)
 unit_ids = tuple(gdf["unit_id"])
 coastal = tuple(zones.coastal_index(gdf).items())
 
@@ -938,7 +949,7 @@ if view in ("Districts & components", "Upazilas & components"):
     comp_cols = ("H", "E", "S", "AC", "V")
     st.image(component_panels(gdf[["unit_id", "geometry"]], result[["unit_id", *comp_cols]],
                               tuple(RAMP), comp_cols, show_districts, show_labels,
-                              (bpath, demo_geometry)), width="stretch")
+                              (bpath, demo_geometry, bsig)), width="stretch")
     html("<div class='cap'>Hazard comes from the climate series; Exposure, Sensitivity and "
          "Adaptive capacity from the indicator table. Vulnerability V = S · (1 − AC). "
          "Where a component is nearly uniform, it contributes little to the ranking.</div>")
