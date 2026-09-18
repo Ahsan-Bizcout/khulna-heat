@@ -1,0 +1,24 @@
+# data: keep the study-area boundaries (small, needed for deployment), skip the rest
+data/boundaries/*
+!data/boundaries/.gitkeep
+!data/boundaries/study_area_upazilas.gpkg
+data/cache/*
+!data/cache/.gitkeep
+outputs/*
+!outputs/.gitkeep
+*.csv
+*.parquet
+
+# python
+.venv/
+__pycache__/
+*.pyc
+
+# local editor / tooling state
+.kilo/
+*.code-workspace
+{heatwave/
+.DS_Store
+
+# secrets
+.streamlit/secrets.toml
