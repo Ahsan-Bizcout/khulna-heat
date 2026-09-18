@@ -259,6 +259,26 @@ data/cache/                 raw GADM download
 outputs/                    results land here
 ```
 
+## Deploying
+
+The app is a plain Streamlit script with no database or secrets, so
+**Streamlit Community Cloud** (free) is the simplest host:
+
+1. Push this repo to GitHub (the 14-upazila boundaries are committed, so the
+   map works out of the box; climate and indicator inputs stay synthetic until
+   you commit or upload real exports under `data/`).
+2. Go to https://share.streamlit.io, sign in with GitHub, choose *New app*,
+   pick the repo, branch `main`, main file `app.py`, and deploy. Python 3.12
+   is pinned in `.python-version`; `requirements.txt` installs everything,
+   including GDAL through the `pyogrio` wheels.
+3. First boot takes a couple of minutes while geopandas builds its wheels'
+   cache; later reloads are fast because the heavy steps are `st.cache_data`.
+
+Alternatives that need no code change: a Hugging Face Space with the
+*Streamlit* SDK (add `sdk: streamlit` and `app_file: app.py` to the Space
+README front matter), or any container host with
+`streamlit run app.py --server.port $PORT --server.address 0.0.0.0`.
+
 ## Dashboard views
 
 - **Risk map** - choropleth of HWRI or any component, with district borders,
