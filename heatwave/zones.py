@@ -110,6 +110,9 @@ def load_zones(
         .str.replace(r"([a-z])([A-Z])", r"\1 \2", regex=True)
     )
 
+    # GADM calls Jashore's sadar upazila by its thana name.
+    out.loc[(out["unit_name"] == "Kotwali") & (out["district"] == "Jashore"), "unit_name"] = "Jashore Sadar"
+
     # Duplicate upazila names are real in this division: there is a Kaliganj in
     # both Jhenaidah and Satkhira, and a Daulatpur in both Kushtia and Khulna.
     # Joining on name silently merges them. Always join on unit_id, and flag

@@ -11,6 +11,7 @@ Outputs land in data/boundaries/:
 
 Usage:
 
+  python scripts/extract_khulna.py --study-area ~/Downloads/Studyarea/Upazilas.shp --drop-city-thanas
   python scripts/extract_khulna.py --study-area ~/Downloads/Studyarea/Upazilas.shp --district Khulna
   python scripts/extract_khulna.py                       # download GADM
   python scripts/extract_khulna.py --gadm path/to/gadm41_BGD_3.json
@@ -39,6 +40,17 @@ OUTLINE_OUT = OUT_DIR / "khulna_division_outline.geojson"
 
 KEEP = ["GID_3", "GID_2", "GID_1", "NAME_1", "NAME_2", "NAME_3",
         "TYPE_3", "CC_3", "geometry"]
+
+# GADM level 3 lists the five Khulna City Corporation thanas (metropolitan
+# police areas) alongside the upazilas. They are not upazilas, and dropping
+# them takes the division from 64 features to the official 59.
+KHULNA_CITY_THANAS = {
+    "BGD.4.5.3_1": "Daulatpur (Khulna)",
+    "BGD.4.5.6_1": "Khalishpur",
+    "BGD.4.5.7_1": "Khan Jahan Ali",
+    "BGD.4.5.8_1": "Khulna Sadar",
+    "BGD.4.5.13_1": "Sonadanga",
+}
 
 
 def fetch_gadm(dest: Path) -> Path:
@@ -89,7 +101,8 @@ def extract_outline(divisions_path: Path | None,
     return merged, "dissolve of the upazila polygons"
 
 
-def import_study_area(src: Path, district: str | None = None) -> gpd.GeoDataFrame:
+def import_study_area(src: Path, district: str | None = None,
+                      drop_city_thanas: bool = False) -> gpd.GeoDataFrame:
     """Standardise a user-supplied upazila layer (GADM-style columns expected).
 
     `district` keeps only that NAME_2 (e.g. "Khulna" -> the 14 upazilas of
@@ -104,6 +117,11 @@ def import_study_area(src: Path, district: str | None = None) -> gpd.GeoDataFram
         if not mask.any():
             sys.exit(f"No rows with {col} == {district!r}. Values: {sorted(g[col].unique())}")
         g = g.loc[mask]
+    if drop_city_thanas:
+        before = len(g)
+        g = g.loc[~g["GID_3"].isin(KHULNA_CITY_THANAS)]
+        print(f"Dropped {before - len(g)} Khulna City Corporation thanas: "
+              + ", ".join(KHULNA_CITY_THANAS.values()))
     if g.crs is None:
         g = g.set_crs("EPSG:4326")
     g = g.to_crs("EPSG:4326")
@@ -126,6 +144,9 @@ def main() -> None:
                     help="Your upazila shapefile; becomes the zone layer the app uses.")
     ap.add_argument("--district", default=None,
                     help="With --study-area: keep only this district (NAME_2), e.g. Khulna.")
+    ap.add_argument("--drop-city-thanas", action="store_true",
+                    help="With --study-area: remove the 5 Khulna City Corporation thanas "
+                         "so the division has its official 59 upazilas.")
     ap.add_argument("--gadm", type=Path, default=None,
                     help="GADM v4.1 level-3 file (json/shp/gpkg). Downloaded if omitted.")
     ap.add_argument("--divisions", type=Path, default=None,
@@ -135,7 +156,7 @@ def main() -> None:
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     if args.study_area:
-        sa = import_study_area(args.study_area, args.district)
+        sa = import_study_area(args.study_area, args.district, args.drop_city_thanas)
         STUDY_AREA_OUT.unlink(missing_ok=True)
         sa.to_file(STUDY_AREA_OUT, driver="GPKG", layer="study_area_upazilas")
         print(f"Wrote study area: {len(sa)} upazilas across "

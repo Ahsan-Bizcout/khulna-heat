@@ -14,18 +14,21 @@ weighting, `V = S(1 − AC)` and `HWRI = (H · E · V)^(1/3)`.
 
 ```bash
 pip install -r requirements.txt
-python scripts/extract_khulna.py --study-area path/to/Studyarea/Upazilas.shp --district Khulna
+python scripts/extract_khulna.py --study-area path/to/Studyarea/Upazilas.shp --drop-city-thanas
 streamlit run app.py
 ```
 
 `--study-area` imports your own upazila layer (GADM-style columns, `GID_3`
 as the key), simplifies it to ~30 m and writes
 `data/boundaries/study_area_upazilas.gpkg`, which the app prefers over any
-other boundary file. `--district Khulna` keeps only Khulna District's 14
-upazilas (`NAME_2 == "Khulna"`); omit it for the whole division. Only the
-upazila layer is used; the division polygon is not drawn. The map frame is
-the outer boundary of the upazilas themselves, and with a single district the
-map labels upazilas and the "Districts & components" view becomes "Upazilas &
+other boundary file. GADM lists 64 level-3 units for Khulna Division because
+it includes the five Khulna City Corporation thanas (Khalishpur, Sonadanga,
+Khulna Sadar, Khan Jahan Ali, Daulatpur); `--drop-city-thanas` removes them
+by `GID_3`, leaving the official **59 upazilas** in 10 districts.
+`--district Khulna` instead keeps a single district. Only the upazila layer
+is used; the division polygon is not drawn. The map frame is the outer
+boundary of the upazilas themselves, and with a single district the map
+labels upazilas and the "Districts & components" view becomes "Upazilas &
 components".
 Without `--study-area`:
 
