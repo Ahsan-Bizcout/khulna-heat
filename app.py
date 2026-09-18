@@ -155,8 +155,9 @@ MAP_CSS = f"""
 .dlabel {{ font: 600 10px/1 {FONT}; letter-spacing: 0.1em; text-transform: uppercase; color: {INK};
            text-align: center; white-space: nowrap; pointer-events: none; opacity: 0.85;
            text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 5px #fff; }}
-.ulabel {{ font: 500 10.5px/1 {FONT}; color: {INK}; text-align: center; white-space: nowrap;
-           pointer-events: none; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 5px #fff; }}
+.ulabel {{ font: 600 9.5px/1.05 {FONT}; color: {INK}; text-align: center; white-space: nowrap;
+           pointer-events: none; letter-spacing: 0.01em;
+           text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff, 1px 1px 0 #fff, -1px -1px 0 #fff; }}
 .leaflet-control-scale-line {{ font-family: {FONT}; }}
 </style>
 """
@@ -289,12 +290,10 @@ def get_map_context(path: str | None, demo: bool) -> dict:
         "districts_json": districts[["district", "geometry"]].to_json(),
         "outline": outline,
         "outline_json": None if outline is None else outline.to_json(),
-        # Upazila labels for a small study area, skipping the tiniest polygons
-        # (city wards) whose labels would only collide with their neighbours.
-        "labels": (list(zip(*[c[keep] for c in (gdf["label"].to_numpy(), pts.y.to_numpy(), pts.x.to_numpy())]))
-                   if len(gdf) <= 20 else
-                   list(zip(districts["district"], districts["lat"], districts["lon"]))),
-        "label_kind": "upazila" if len(gdf) <= 20 else "district",
+        # Upazila labels skip the tiniest polygons (city wards), whose labels
+        # would only collide with their neighbours.
+        "labels_upazila": list(zip(*[c[keep] for c in (gdf["unit_name"].to_numpy(), pts.y.to_numpy(), pts.x.to_numpy())])),
+        "labels_district": list(zip(districts["district"], districts["lat"], districts["lon"])),
     }
 
 
@@ -402,8 +401,11 @@ with st.sidebar:
                                 "matches the thesis figures.")
     basemap_choice = st.selectbox("Basemap", ["None (plain)", "OpenStreetMap"], index=0)
     show_districts = st.toggle("District borders", value=True)
-    show_labels = st.toggle("Place labels", value=True,
-                            help="Upazila names for a small study area, district names otherwise.")
+    label_mode = st.radio("Labels on the map", ["Upazila names", "District names", "None"], index=0,
+                          help="Upazila names are drawn at each polygon's interior point; the "
+                               "smallest polygons are skipped to avoid overlaps. Zoom in to separate "
+                               "dense clusters.")
+    show_labels = label_mode != "None"
     opacity = st.slider("Fill opacity", 0.3, 1.0, 0.9, 0.02)
 
     with st.expander("Heatwave definition", expanded=True):
@@ -602,11 +604,12 @@ def build_map(gdf, values, unit_ids, layer_name, *, categorical=False, colours=N
                 style_function=lambda f: {"fill": False, "color": INK, "weight": 3.2, "opacity": 1.0},
             ).add_to(m)
     if show_labels:
-        for name, lat, lon in ctx["labels"]:
+        upz = label_mode == "Upazila names"
+        for name, lat, lon in (ctx["labels_upazila"] if upz else ctx["labels_district"]):
             folium.Marker(
                 [lat, lon],
                 icon=folium.DivIcon(
-                    html=f"<div class='{'ulabel' if ctx.get('label_kind') == 'upazila' else 'dlabel'}'>{name}</div>",
+                    html=f"<div class='{'ulabel' if upz else 'dlabel'}'>{name}</div>",
                     icon_size=(140, 14), icon_anchor=(70, 7)),
             ).add_to(m)
 
@@ -628,9 +631,10 @@ def draw_frame(ax, linewidth_scale=1.0):
     if ctx["outline"] is not None:
         ctx["outline"].boundary.plot(ax=ax, color=INK, linewidth=1.1 * linewidth_scale)
     if show_labels:
-        for name, lat, lon in ctx["labels"]:
-            ax.text(lon, lat, name.upper() if ctx.get("label_kind") != "upazila" else name,
-                    fontsize=5.2 * linewidth_scale, ha="center", va="center",
+        upz = label_mode == "Upazila names"
+        for name, lat, lon in (ctx["labels_upazila"] if upz else ctx["labels_district"]):
+            ax.text(lon, lat, name if upz else name.upper(),
+                    fontsize=(4.2 if upz else 5.2) * linewidth_scale, ha="center", va="center",
                     color=INK, alpha=0.85, fontweight="semibold",
                     path_effects=None)
 
@@ -677,7 +681,7 @@ def static_choropleth(gdf, values, unit_ids, layer_name, categorical=False, colo
 
 
 def render_map(gdf, values, unit_ids, layer_name, categorical=False, colours=None,
-               vmin=0.0, vmax=1.0, height=640, props=None, extra_fields=(), focus_id=None,
+               vmin=0.0, vmax=1.0, height=720, props=None, extra_fields=(), focus_id=None,
                ramp=None):
     if RENDERER.startswith("Static"):
         st.image(static_choropleth(gdf, values, unit_ids, layer_name, categorical, colours,
