@@ -1,6 +1,6 @@
 # Core
-numpy>=1.26
-pandas>=2.1
+numpy>=1.26,<3
+pandas>=2.1,<3          # pandas 3 changes default string dtype; untested
 scipy>=1.11
 
 # Spatial
@@ -9,7 +9,13 @@ shapely>=2.0
 pyogrio>=0.7
 
 # Dashboard
-streamlit==1.50.0        # tested; newer releases drop use_container_width
+# Tested stack (local dev, Python <= 3.12). Streamlit 1.50 pins altair < 6, and
+# altair 5 cannot import on Python 3.14, so newer interpreters take the
+# newer pair instead (Streamlit >= 1.52 allows altair 6).
+streamlit==1.50.0; python_version < "3.13"
+altair>=5.5,<6;      python_version < "3.13"
+streamlit>=1.52;     python_version >= "3.13"
+altair>=6,<7;        python_version >= "3.13"
 folium>=0.17
 streamlit-folium==0.25.3
 branca>=0.7

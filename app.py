@@ -168,7 +168,15 @@ def html(s: str) -> None:
 
 
 def chart(c: alt.TopLevelMixin) -> None:
-    st.altair_chart(c, use_container_width=True, theme=None)
+    """Full-width Altair chart across Streamlit versions.
+
+    Streamlit >= 1.49 takes width="stretch" and later releases drop
+    use_container_width; 1.50 (the tested pin) has only the latter.
+    """
+    try:
+        st.altair_chart(c, width="stretch", theme=None)
+    except TypeError:
+        st.altair_chart(c, use_container_width=True, theme=None)
 
 
 def styled(c):
@@ -678,7 +686,10 @@ def render_map(gdf, values, unit_ids, layer_name, categorical=False, colours=Non
         fmap = build_map(gdf, values, unit_ids, layer_name, categorical=categorical,
                          colours=colours, vmin=vmin, vmax=vmax, props=props,
                          extra_fields=extra_fields, focus_id=focus_id, ramp=ramp)
-        st_folium(fmap, height=height, use_container_width=True, returned_objects=[])
+        try:
+            st_folium(fmap, height=height, use_container_width=True, returned_objects=[])
+        except TypeError:
+            st_folium(fmap, height=height, width=None, returned_objects=[])
 
 
 @st.cache_data(show_spinner=False)
